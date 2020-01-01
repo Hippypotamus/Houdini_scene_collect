@@ -3,7 +3,7 @@ import os, shutil
 collect_folder = "D:/collect_test"
 
 
-class HSC(object):
+class HSC(object): # HoudiniSceneCollect
     def __init__(self, job="C:/", ):
         self.job = job
         self.tex_dir = os.path.join(self.job, "tex")
