@@ -1,10 +1,8 @@
 import os, shutil
 
-collect_folder = "D:/collect_test"
-
 
 class HSC(object): # HoudiniSceneCollect
-    def __init__(self, job="C:/", ):
+    def __init__(self, job="C:/collect_folder"):
         self.job = job
         self.tex_dir = os.path.join(self.job, "tex")
         self.geo_dir = os.path.join(self.job, "geo")
@@ -18,16 +16,20 @@ class HSC(object): # HoudiniSceneCollect
                         ".3ds")
         self.excluded_ext = (".ocio")
         self.sel_nodes = []
-        self.changes_accept = 0
+        self.changes_accept = 1
         self.copy_accept = 1
-        # start
-        self.start()
 
-    def start(self):
+    def emulation(self):
+        self.changes_accept = 0
+        self.copy_accept = 0
+        self.collect()
+
+    def collect(self):
         self.makeFolder(self.job)
         self.__selectNodes()
         self.__processing()
-        hou.putenv("job", self.job)
+        if self.changes_accept:
+            hou.putenv("job", self.job)
 
     def makeFolder(self, path):
         if not os.path.exists(path):
@@ -54,16 +56,10 @@ class HSC(object): # HoudiniSceneCollect
                 parm_eval_dir = os.path.dirname(parm.eval())
                 if os.path.exists(parm_eval_dir):
                     if "$F" in parm.unexpandedString():
-                        print "This is a sequence."
-                        print parm.path()
                         self.__copySeq(parm)
                     elif "%(UDIM)d" in parm.unexpandedString():
-                        print "This is UDIM."
-                        print parm.path()
                         self.__copyUDIM(parm)
                     else:
-                        print "This is a file."
-                        print parm.path()
                         self.__copyFile(parm)
 
     def __copyFile(self, parm):
@@ -154,4 +150,6 @@ class HSC(object): # HoudiniSceneCollect
         else:
             return False
 
-w = HSC(collect_folder)
+
+w = HSC("D:/collect_test")
+w.emulation()
