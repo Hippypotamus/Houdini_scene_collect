@@ -99,11 +99,23 @@ class HSC(object): # HoudiniSceneCollect
         # set new parameter value
 
     def __copyUDIM(self, parm):
-        # check type
-        # copy
-        # set new parameter value
-        # log changes
-        pass
+        old_dir = os.path.dirname(parm.unexpandedString())
+        old_name = os.path.basename(parm.unexpandedString())
+        begin, end = old_name.split("%(UDIM)d")
+        files = [x for x in os.listdir(old_dir) if x.startswith(begin) and x.endswith(end)]
+        new_dir = os.path.join(self.job, "tex", begin + "_udim")
+        self.makeFolder(new_dir)
+        for f in files:
+            old_path = os.path.join(old_dir, f)
+            new_path = os.path.join(new_dir, f)
+            if self.__checkExistance(old_path):
+            	if not self.__checkExistance(new_path):
+            		if self.changes_accept:
+                		shutil.copy(old_path, new_path)
+        new_name = begin + "%(UDIM)d" + end
+        new_parm = "$JOB/tex/" + begin + "_udim/" + new_name
+        if self.changes_accept:
+        	parm.set(new_parm)
 
     def __copySeq(self, parm):
         # check type
