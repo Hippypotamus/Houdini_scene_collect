@@ -18,7 +18,8 @@ class HSC(object): # HoudiniSceneCollect
                         ".3ds")
         self.excluded_ext = (".ocio")
         self.sel_nodes = []
-        self.changes_accept = 1
+        self.changes_accept = 0
+        self.copy_accept = 1
         # start
         self.start()
 
@@ -30,7 +31,7 @@ class HSC(object): # HoudiniSceneCollect
 
     def makeFolder(self, path):
         if not os.path.exists(path):
-            os.mkdir(path)
+            os.makedirs(path)
 
     def __selectNodes(self):
         if hou.selectedNodes():
@@ -86,45 +87,50 @@ class HSC(object): # HoudiniSceneCollect
                     old_string=old_string,
                     new_path=new_path,
                     new_string=new_string)
-        rename_status = 1
         self.makeFolder(new_dir)
         # copy
+        rename_parm_status = 0
         if self.__checkExistance(old_path):
             if not self.__checkExistance(new_path):
-                if self.changes_accept:
+                if self.copy_accept:
                     shutil.copy(old_path, new_path)
-                self.__saveLog(data)
-            else:
-                # This file is already exist in destination folder: %s" % parm.path()
-                rename_status = 1
+                    rename_parm_status = 1
+                self.__saveLog(data)                
         else:
             print "This file doesn't exist: %s" % parm.path()
-            rename_status = 0
-        if rename_status:
+        if rename_parm_status:
             if self.changes_accept:
                 parm.set(new_string)
-        # set new parameter value
 
     def __copyUDIM(self, parm):
-        # Not tested yet.
-        old_dir = os.path.dirname(parm.unexpandedString())
+        def b(x):
+            if type(x) == str:
+                while x.endswith("_") or x.endswith(".") or x.endswith("-"):
+                    x = x[:-1]
+                return x
+            else:
+                print "begin have to be the string type."
+        old_dir = os.path.dirname(parm.eval())
         old_name = os.path.basename(parm.unexpandedString())
         begin, end = old_name.split("%(UDIM)d")
         files = [x for x in os.listdir(old_dir) if x.startswith(begin) and x.endswith(end)]
-        new_dir = os.path.join(self.job, "tex", begin + "_udim")
+        begin = b(begin)
+        new_dir = os.path.join(self.job, "tex", "UDIM_" + begin)
         self.makeFolder(new_dir)
+        rename_parm_status = 0
         for f in files:
-            print f
-            old_path = os.path.join(old_dir, f)
-            new_path = os.path.join(new_dir, f)
+            old_path = os.path.join(old_dir, f).replace("\\", "/")
+            new_path = os.path.join(new_dir, f).replace("\\", "/")
             if self.__checkExistance(old_path):
                 if not self.__checkExistance(new_path):
-                        if self.changes_accept:
-                            shutil.copy(old_path, new_path)
+                    if self.copy_accept:
+                        shutil.copy(old_path, new_path)
+                        rename_parm_status = 1
         new_name = begin + "%(UDIM)d" + end
-        new_parm = "$JOB/tex/" + begin + "_udim/" + new_name
-        if self.changes_accept:
-            parm.set(new_parm)
+        new_parm = "$JOB/tex/" + begin + "UDIM/" + new_name
+        if rename_parm_status:
+            if self.changes_accept:
+                parm.set(new_parm)
 
     def __copySeq(self, parm):
         # check type
