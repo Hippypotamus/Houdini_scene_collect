@@ -17,8 +17,8 @@ class HSC(object): # HoudiniSceneCollect
                         ".fbx",
                         ".3ds")
         self.excluded_ext = (".ocio")
-        self.sel_nodes = None
-        self.changes_accept = 0
+        self.sel_nodes = []
+        self.changes_accept = 1
         # start
         self.start()
 
@@ -26,6 +26,7 @@ class HSC(object): # HoudiniSceneCollect
         self.makeFolder(self.job)
         self.__selectNodes()
         self.__processing()
+        hou.putenv("job", self.job)
 
     def makeFolder(self, path):
         if not os.path.exists(path):
@@ -33,7 +34,10 @@ class HSC(object): # HoudiniSceneCollect
 
     def __selectNodes(self):
         if hou.selectedNodes():
-            self.sel_nodes = hou.selectedNodes()
+            for node in hou.selectedNodes():
+                self.sel_nodes.append(node)
+                for s in node.allSubChildren(top_down=True, recurse_in_locked_nodes=False):
+                    self.sel_nodes.append(s)
         else:
             self.sel_nodes = hou.node("/").allSubChildren(top_down=True, recurse_in_locked_nodes=False)
 
@@ -49,13 +53,16 @@ class HSC(object): # HoudiniSceneCollect
                 parm_eval_dir = os.path.dirname(parm.eval())
                 if os.path.exists(parm_eval_dir):
                     if "$F" in parm.unexpandedString():
-                        # This is a sequence.
+                        print "This is a sequence."
+                        print parm.path()
                         self.__copySeq(parm)
-                    elif "UDIM" in parm.unexpandedString():
-                        # This is UDIM.
+                    elif "%(UDIM)d" in parm.unexpandedString():
+                        print "This is UDIM."
+                        print parm.path()
                         self.__copyUDIM(parm)
                     else:
-                        # This is a file
+                        print "This is a file."
+                        print parm.path()
                         self.__copyFile(parm)
 
     def __copyFile(self, parm):
@@ -88,8 +95,8 @@ class HSC(object): # HoudiniSceneCollect
                     shutil.copy(old_path, new_path)
                 self.__saveLog(data)
             else:
-                print "This file is already exist in destination folder: %s" % parm.path()
-                rename_status = 0
+                # This file is already exist in destination folder: %s" % parm.path()
+                rename_status = 1
         else:
             print "This file doesn't exist: %s" % parm.path()
             rename_status = 0
@@ -99,7 +106,7 @@ class HSC(object): # HoudiniSceneCollect
         # set new parameter value
 
     def __copyUDIM(self, parm):
-    	# Not tested yet.
+        # Not tested yet.
         old_dir = os.path.dirname(parm.unexpandedString())
         old_name = os.path.basename(parm.unexpandedString())
         begin, end = old_name.split("%(UDIM)d")
@@ -107,16 +114,17 @@ class HSC(object): # HoudiniSceneCollect
         new_dir = os.path.join(self.job, "tex", begin + "_udim")
         self.makeFolder(new_dir)
         for f in files:
+            print f
             old_path = os.path.join(old_dir, f)
             new_path = os.path.join(new_dir, f)
             if self.__checkExistance(old_path):
-            	if not self.__checkExistance(new_path):
-            		if self.changes_accept:
-                		shutil.copy(old_path, new_path)
+                if not self.__checkExistance(new_path):
+                        if self.changes_accept:
+                            shutil.copy(old_path, new_path)
         new_name = begin + "%(UDIM)d" + end
         new_parm = "$JOB/tex/" + begin + "_udim/" + new_name
         if self.changes_accept:
-        	parm.set(new_parm)
+            parm.set(new_parm)
 
     def __copySeq(self, parm):
         # check type
