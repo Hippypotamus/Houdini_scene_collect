@@ -99,6 +99,7 @@ class HSC(object): # HoudiniSceneCollect
         # set new parameter value
 
     def __copyUDIM(self, parm):
+    	# Not tested yet.
         old_dir = os.path.dirname(parm.unexpandedString())
         old_name = os.path.basename(parm.unexpandedString())
         begin, end = old_name.split("%(UDIM)d")
