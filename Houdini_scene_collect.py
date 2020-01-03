@@ -62,7 +62,7 @@ class HSC(object): # HoudiniSceneCollect
                     else:
                         self.__copyFile(parm)
 
-    def __copyFile(self, parm):
+    def __copyFile(self, parm): # Need more tests
         # Check type geo or tex.
         name, ext = os.path.splitext(os.path.basename(parm.unexpandedString()))
         if ext.lower() in self.geo_ext:
@@ -98,7 +98,7 @@ class HSC(object): # HoudiniSceneCollect
             if self.changes_accept:
                 parm.set(new_string)
 
-    def __copyUDIM(self, parm):
+    def __copyUDIM(self, parm): # Need more tests
         def b(x):
             if type(x) == str:
                 while x.endswith("_") or x.endswith(".") or x.endswith("-"):
@@ -128,7 +128,15 @@ class HSC(object): # HoudiniSceneCollect
             if self.changes_accept:
                 parm.set(new_parm)
 
-    def __copySeq(self, parm):
+    def __copySeq(self, parm): # In development.
+        parm_str = parm.unexpandedString()
+        old_dir = os.path.dirname(parm.eval())
+        name = os.path.basename(parm_str)
+        name = os.path.basename(parm_str)
+        prefix = name.split("$F")[0]
+        padding = ""
+        if (name.split("$F")[1][0]).isdigit():
+            padding = name.split("$F")[1][0]
         # check type
         # copy
         # set new parameter value
