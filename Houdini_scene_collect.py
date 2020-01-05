@@ -1,9 +1,10 @@
-import os, shutil
+import os, shutil, json
 
 
 class HSC(object): # HoudiniSceneCollect
     def __init__(self, job="C:/collect_folder"):
         self.job = job
+        self.log_dir = os.path.join(self.job, "log")
         self.tex_dir = os.path.join(self.job, "tex")
         self.geo_dir = os.path.join(self.job, "geo")
         self.excluded_node_type = ("ifd")
@@ -26,10 +27,11 @@ class HSC(object): # HoudiniSceneCollect
 
     def collect(self):
         self.makeFolder(self.job)
+        self.makeFolder(self.log_dir)
         self.__selectNodes()
         self.__processing()
         if self.changes_accept:
-            hou.putenv("job", self.job)
+            hou.putenv("JOB", self.job)
 
     def makeFolder(self, path):
         if not os.path.exists(path):
@@ -89,7 +91,7 @@ class HSC(object): # HoudiniSceneCollect
         if self.__checkExistance(old_path):
             if not self.__checkExistance(new_path):
                 if self.copy_accept:
-                    shutil.copy(old_path, new_path)
+                    shutil.copy2(old_path, new_path)
                     rename_parm_status = 1
                 self.__saveLog(data)                
         else:
@@ -120,7 +122,7 @@ class HSC(object): # HoudiniSceneCollect
             if self.__checkExistance(old_path):
                 if not self.__checkExistance(new_path):
                     if self.copy_accept:
-                        shutil.copy(old_path, new_path)
+                        shutil.copy2(old_path, new_path)
                         rename_parm_status = 1
         new_name = begin + "%(UDIM)d" + end
         new_parm = "$JOB/tex/" + begin + "UDIM/" + new_name
@@ -128,7 +130,7 @@ class HSC(object): # HoudiniSceneCollect
             if self.changes_accept:
                 parm.set(new_parm)
 
-    def __copySeq(self, parm): # In development.
+    def __copySeq(self, parm):
         parm_str = parm.unexpandedString()
         old_dir = os.path.dirname(parm.eval())
         name = os.path.basename(parm_str)
@@ -164,7 +166,7 @@ class HSC(object): # HoudiniSceneCollect
             new_path = os.path.join(new_dir, f).replace("\\", "/")
             if self.__checkExistance(old_path):
                 if self.copy_accept:
-                    shutil.copy(old_path, new_path)
+                    shutil.copy2(old_path, new_path)
             else:
                 data = "File $s is not exist." % old_path
                 self.__saveLog(data)
@@ -177,9 +179,12 @@ class HSC(object): # HoudiniSceneCollect
     def __saveHipfile(self):
         pass
 
-    def __saveLog(self, data=None, err=None):
+    def __saveLog(self, data=None, err=None): # Developnemt started.
+        success_log = os.path.join(self.log_dir, "success.txt")
+        error_log = os.path.join(self.log_dir, "error.txt")
+        restore_json = os.path.join(self.log_dir, "restore.json")
         if data:
-            print data["node"]
+            print data
         else:
             print "No data to show."
 
