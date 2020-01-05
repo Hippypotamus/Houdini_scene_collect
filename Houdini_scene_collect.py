@@ -132,21 +132,52 @@ class HSC(object): # HoudiniSceneCollect
         parm_str = parm.unexpandedString()
         old_dir = os.path.dirname(parm.eval())
         name = os.path.basename(parm_str)
-        name = os.path.basename(parm_str)
-        prefix = name.split("$F")[0]
+        new_folder = name.split("$F")[0]
+
+        # define name for new folder
+        sign = ("-", "_", " ", ".")
+        while new_folder[-1] in sign:
+            new_folder = new_folder[:-1]
+
+        # identify class
+        ext = os.path.splitext(parm_str)[1]
+        if ext in selg.geo_ext:
+            cl = "geo"
+        else:
+            cl = "tex"
+
+        # identify padding
         padding = ""
         if (name.split("$F")[1][0]).isdigit():
-            padding = name.split("$F")[1][0]
-        # check type
-        # copy
-        # set new parameter value
-        # log changes
-        pass
+            padding = int(name.split("$F")[1][0])
+
+        # make new directory for the sequence
+        new_dir = os.path.join(self.job, cl, new_folder)
+        self.makeFolder(new_dir)
+
+        # identify sequence for peocessing
+        seq_list = [f for f in os.listdir(old_dir) if f.startswith(prefix)]
+
+        # copy sequence
+        for f in seq_list:
+            old_path = os.path.join(old_dir, f).replace("\\", "/")
+            new_path = os.path.join(new_dir, f).replace("\\", "/")
+            if self.__checkExistance(old_path):
+                if self.copy_accept:
+                    shutil.copy(old_path, new_path)
+            else:
+                data = "File $s is not exist." % old_path
+                self.__saveLog(data)
+
+        # set new parm
+        new_parm_str = ("$JOB/%s/%s/%s" % (cl, prefix, os.path.basename(parm_str))).replace("\\", "/")
+        if self.changes_accept:
+            parm.set(new_parm_str)            
 
     def __saveHipfile(self):
         pass
 
-    def __saveLog(self, data=None):
+    def __saveLog(self, data=None, err=None):
         if data:
             print data["node"]
         else:
