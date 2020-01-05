@@ -161,20 +161,23 @@ class HSC(object): # HoudiniSceneCollect
         seq_list = [f for f in os.listdir(old_dir) if f.startswith(prefix)]
 
         # copy sequence
+        rename_parm_status = 0
         for f in seq_list:
             old_path = os.path.join(old_dir, f).replace("\\", "/")
             new_path = os.path.join(new_dir, f).replace("\\", "/")
             if self.__checkExistance(old_path):
                 if self.copy_accept:
                     shutil.copy2(old_path, new_path)
+                    rename_parm_status = 1
             else:
                 data = "File $s is not exist." % old_path
                 self.__saveLog(data)
 
         # set new parm
         new_parm_str = ("$JOB/%s/%s/%s" % (cl, prefix, os.path.basename(parm_str))).replace("\\", "/")
-        if self.changes_accept:
-            parm.set(new_parm_str)            
+        if rename_parm_status:
+            if self.changes_accept:
+                parm.set(new_parm_str)
 
     def __saveHipfile(self):
         pass
