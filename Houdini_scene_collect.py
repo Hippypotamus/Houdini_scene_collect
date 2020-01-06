@@ -1,4 +1,4 @@
-import os, shutil, json
+import os, shutil, json, time
 
 
 class HSC(object): # HoudiniSceneCollect
@@ -17,6 +17,7 @@ class HSC(object): # HoudiniSceneCollect
                         ".3ds")
         self.excluded_ext = (".ocio")
         self.sel_nodes = []
+        self.progress = 0
         self.changes_accept = 1
         self.copy_accept = 1
 
@@ -46,10 +47,18 @@ class HSC(object): # HoudiniSceneCollect
         else:
             self.sel_nodes = hou.node("/").allSubChildren(top_down=True, recurse_in_locked_nodes=False)
 
-    def __processing(self):
+    def __processing(self):        
         for n in self.sel_nodes:
+            self.__progressShow()
+            time.sleep(0.01)
             for parm in n.parms():
                 self.__checkParm(parm)
+
+    def __progressShow(self):
+        count = 100.0/len(self.sel_nodes)
+        self.progress += count
+        print "Progress: %d" % int(self.progress) + "%"
+        
 
     def __checkParm(self, parm):
         # Check the parm type and run copy for that data type.
@@ -93,7 +102,7 @@ class HSC(object): # HoudiniSceneCollect
                 if self.copy_accept:
                     shutil.copy2(old_path, new_path)
                     rename_parm_status = 1
-                self.__saveLog(data)                
+                #self.__saveLog(data)                
         else:
             print "This file doesn't exist: %s" % parm.path()
         if rename_parm_status:
