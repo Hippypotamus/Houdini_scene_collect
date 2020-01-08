@@ -124,7 +124,9 @@ class HSC(object): # HoudiniSceneCollect
                 print "begin have to be the string type."
         old_dir = os.path.dirname(parm.eval())
         old_name = os.path.basename(parm.unexpandedString())
+        old_string = parm.unexpandedString()
         begin, end = old_name.split("%(UDIM)d")
+        ext = os.path.splitext(parm.unexpandedString())[-1]
         files = [x for x in os.listdir(old_dir) if x.startswith(begin) and x.endswith(end)]
         begin = b(begin)
         new_dir = os.path.join(self.job, "tex", "UDIM_" + begin)
@@ -134,15 +136,27 @@ class HSC(object): # HoudiniSceneCollect
             old_path = os.path.join(old_dir, f).replace("\\", "/")
             new_path = os.path.join(new_dir, f).replace("\\", "/")
             if self.__checkExistance(old_path):
-                if not self.__checkExistance(new_path):
+                if not self.__checkExistancepath_new():
                     if self.copy_accept:
                         shutil.copy2(old_path, new_path)
                         rename_parm_status = 1
         new_name = begin + "%(UDIM)d" + end
-        new_parm = "$JOB/tex/" + begin + "UDIM/" + new_name
+        new_string = "$JOB/tex/" + begin + "UDIM/" + new_name
+
+        data = dict(node=parm.node().path(),
+                    parm = parm.path(),
+                    parm_name=parm.name(),
+                    ext=ext.lower(),
+                    path_old=old_path,
+                    path_new=new_path,
+                    string_old=old_string,                    
+                    string_new=new_string)
+        
+        self.__saveLog(data)
+
         if rename_parm_status:
             if self.changes_accept:
-                parm.set(new_parm)
+                parm.set(new_string)
 
     def __copySeq(self, parm):
         old_string = parm.unexpandedString()
@@ -185,7 +199,7 @@ class HSC(object): # HoudiniSceneCollect
                     shutil.copy2(old_path, new_path)
                     rename_parm_status = 1
             else:
-                data = "File $s is not exist." % old_path
+                print "File $s is not exist." % old_path
 
         # set new parm
         new_string = ("$JOB/%s/%s/%s" % (cl, prefix, os.path.basename(old_string))).replace("\\", "/")
