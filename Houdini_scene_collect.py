@@ -26,7 +26,7 @@ class HSC(object): # HoudiniSceneCollect
         self.changes_accept = 1
         self.copy_accept = 1
 
-    def emulate(self):
+    def check(self):
         self.changes_accept = 0
         self.copy_accept = 0
         self.collect()
@@ -262,5 +262,5 @@ class HSC(object): # HoudiniSceneCollect
             return False
 
 
-w = HSC("D:/collect_test")
-w.emulate()
+c = HSC("D:/collect_test")
+c.check()
