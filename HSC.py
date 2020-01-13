@@ -1,5 +1,6 @@
 import os, shutil, json
 
+
 class HSC(object): # HoudiniSceneCollect
     def __init__(self, job="C:/collect_folder"):
         self.job = job
@@ -10,9 +11,11 @@ class HSC(object): # HoudiniSceneCollect
         self.restore_json = None
         self.error_log = None
         self.excluded_node_type = ("ifd",
-                                    "bake_animation",)
+                                    "bake_animation",
+                                    "rop_fbx",)
         self.excluded_parms = ("instancepath", 
                                 "sopoutput",)
+        self.excluded_labels = ("Show Texture",)
         self.geo_ext = (".abc",\
                         ".obj",\
                         ".bgeo",\
@@ -40,8 +43,7 @@ class HSC(object): # HoudiniSceneCollect
         self.__selectNodes()
         self.__processing()
         if self.changes_accept:
-            hip_file = os.path.join(self.job, self.scenes_dir, hou.hipFile.basename())
-            self.__saveHipfile(hip_file)
+            self.__saveHipfile()
             hou.putenv("JOB", self.job)
 
     def makeFolder(self, path):
@@ -57,7 +59,7 @@ class HSC(object): # HoudiniSceneCollect
         else:
             self.sel_nodes = hou.node("/").allSubChildren(True, False)
 
-    def __processing(self):        
+    def __processing(self):
         for n in self.sel_nodes:
             self.__progressShow()
             for parm in n.parms():
@@ -65,7 +67,7 @@ class HSC(object): # HoudiniSceneCollect
         print "Collect complete!"
 
     def __progressShow(self):
-        count = 100.0/len(self.sel_nodes)
+        count = 100.0 / len(self.sel_nodes)
         self.progress += count
         print "Progress: %d" % int(self.progress) + "%"
 
@@ -75,24 +77,29 @@ class HSC(object): # HoudiniSceneCollect
             if parm.parmTemplate().type() == hou.parmTemplateType.String:
                 if parm.node().type().name() not in self.excluded_node_type:
                     if parm.name() not in self.excluded_parms:
-                        parm_eval_dir = os.path.dirname(parm.rawValue())
-                        if os.path.isabs(parm_eval_dir):
-                            if os.path.exists(parm_eval_dir):
-                                if "$F" in parm.rawValue():
-                                    self.__copySeq(parm)
-                                elif r"%(UDIM)d" in parm.rawValue() or "<UDIM>" in parm.rawValue():
-                                    self.__copyUDIM(parm)
-                                else:
-                                    self.__copyFile(parm)
+                        if parm.parmTemplate().label() not in self.excluded_labels:
+                            parm_eval_dir = os.path.dirname(parm.rawValue())
+                            if os.path.isabs(parm_eval_dir):
+                                if os.path.exists(parm_eval_dir):
+                                    if "$F" in parm.rawValue():
+                                        self.__copySeq(parm)
+                                    elif r"%(UDIM)d" in parm.rawValue() or "<UDIM>" in parm.rawValue():
+                                        self.__copyUDIM(parm)
+                                    else:
+                                        self.__copyFile(parm)
 
-    def __cropExt(self, ext):
-        if "#" in ext:
-            ext, ext2 = ext.split("#")
-            self.__ext2(ext2)
-        return ext
+    def __checkEvalParm(self, parm):
+        try:
+            parm.evalAsString()
+            return True
+        except:
+            return False
 
-    def __ext2(self, ext2=None):
-        return ext2
+    def __checkExistance(self, path):
+        if os.path.exists(path):
+            return True
+        else:
+            return False
 
     def __checkRawValue(self, parm):
         raw_value = parm.rawValue()
@@ -105,49 +112,98 @@ class HSC(object): # HoudiniSceneCollect
             raw_value = raw_value.replace("`opname('.')`", parm.node().name())
         return raw_value
 
-    def __copyFile(self, parm): # Need more tests
-        # Check type geo or tex.
-        raw_value = self.__checkRawValue(parm)
-        name, ext = os.path.splitext(os.path.basename(raw_value))
-        ext = self.__cropExt(ext.lower())
-        if ext in self.geo_ext:
-            file_type = "geo"
+    def __cropExt(self, ext):
+        if "#" in ext:
+            ext, ext2 = ext.split("#")
+            return (ext, ext2)
         else:
-            file_type = "tex"
-        # Data for copy.
-        old_dir = os.path.dirname(parm.rawValue()).replace("\\", "/")
-        old_path = os.path.join(old_dir, name + ext).replace("\\", "/")
-        fullName = os.path.basename(old_path)
-        new_dir = os.path.join(self.job, file_type).replace("\\", "/")
-        new_path = os.path.join(new_dir, fullName).replace("\\", "/")
-        old_string = parm.rawValue()
-        ext2 = self.__ext2()
-        if not ext2:
-            new_string = "$JOB/%s/%s" % (file_type, fullName)
-        else:
-            new_string = "$JOB/%s/%s#%s" % (file_type, fullName, ext2)
-        data = dict(node=parm.node().path(),
-                    parm = parm.path(),
-                    parm_name=parm.name(),
-                    ext=ext.lower(),
-                    #path_old=old_path,
-                    #path_new=new_path,
-                    string_old=old_string,                    
-                    string_new=new_string)
-        self.makeFolder(new_dir)
-        # copy
-        rename_parm_status = 0
-        if self.__checkExistance(old_path):
-            if not self.__checkExistance(new_path):
+            return (ext, None)
+
+    def __copyDupl(self, path_from, path_to):
+        path_from = path_from.replace("\\","/")
+        path_to = path_to.replace("\\","/")
+        if os.path.exists(path_from):
+            if os.path.exists(path_to):
+                basename_from = os.path.basename(path_from)
+                basename_to = os.path.basename(path_to)
+                name, ext = os.path.splitext(basename_to)
+                dupl_list = (x for x in os.listdir(os.path.dirname(path_to)) if x.startswith(name))
+                files = []
+                size_list = []
+                name_list = []
+                for f in dupl_list:
+                    files.append(f)
+                    size_list.append(os.path.getsize(os.path.join(os.path.dirname(path_to),f)))
+                for basename_to in files:
+                    path_to = os.path.join(os.path.dirname(path_to), basename_to).replace("\\","/")
+                    if os.path.getsize(path_from) not in size_list:
+                        if len(files) <= 1:
+                            full_name = name + "_Copy1" + ext
+                            full_path = os.path.join(os.path.dirname(path_to), full_name).replace("\\","/")
+                            print full_path
+                            if self.copy_accept:
+                                shutil.copy2(path_from, full_path)
+                        if len(files) > 1:
+                            name = name.split("_Copy")[0]
+                            full_name = name + "_Copy%s%s" % (len(files), ext)
+                            full_path = os.path.join(os.path.dirname(path_to), full_name).replace("\\","/")
+                            if self.copy_accept:
+                                shutil.copy2(path_from, full_path)
+                        return full_name
+                    else:
+                        for f in files:
+                            full_path = os.path.join(os.path.dirname(path_to), f)
+                            full_name = os.path.basename(full_path)
+                            if os.path.getsize(path_from) == os.path.getsize(full_path):
+                                return full_name
+
+            else:
                 if self.copy_accept:
-                    shutil.copy2(old_path, new_path)
-                    rename_parm_status = 1
-            self.__saveLog(data)                
-        else:
-            self.__saveLog(parm.path(), 1)
-        if rename_parm_status:
-            if self.changes_accept:
-                parm.set(new_string)
+                    shutil.copy2(path_from, path_to)
+                return os.path.basename(path_to)
+
+
+    def __copyFile(self, parm): # Need more tests
+        raw_value = self.__checkRawValue(parm)
+        if self.__checkEvalParm(parm):
+            name, ext = os.path.splitext(os.path.basename(raw_value))
+            ext, ext2 = self.__cropExt(ext.lower())
+            if ext in self.geo_ext:
+                file_type = "geo"
+            else:
+                file_type = "tex"
+
+            old_dir = os.path.dirname(parm.eval()).replace("\\", "/")
+            basename = name + ext
+            path_from = os.path.join(old_dir, basename).replace("\\", "/")           
+            new_dir = os.path.join(self.job, file_type).replace("\\", "/")
+            path_to = os.path.join(new_dir, basename).replace("\\", "/")
+            self.makeFolder(new_dir)
+            rename_parm_status = 0
+            basename = self.__copyDupl(path_from, path_to)
+            if basename:
+                rename_parm_status = 1
+
+            if not ext2:
+                new_string = "$JOB/%s/%s" % (file_type, basename)
+            else:
+                new_string = "$JOB/%s/%s#%s" % (file_type, basename, ext2)
+    
+            data = dict(node=parm.node().path(),
+                        parm = parm.path(),
+                        parm_name=parm.name(),
+                        ext=ext.lower(),
+                        string_old=raw_value,                    
+                        string_new=new_string)
+
+            if basename:
+                self.__saveLog(data)
+            else:
+                self.__saveLog(parm.path(), 1)
+
+            if rename_parm_status:
+                if self.changes_accept:
+                    parm.set(new_string)
     
     def __copyUDIM(self, parm): # Need more tests
         def b(x):
@@ -189,8 +245,6 @@ class HSC(object): # HoudiniSceneCollect
                     parm = parm.path(),
                     parm_name=parm.name(),
                     ext=ext.lower(),
-                    #path_old=old_path,
-                    #path_new=new_path,
                     string_old=old_string,                    
                     string_new=new_string)
         
@@ -269,7 +323,7 @@ class HSC(object): # HoudiniSceneCollect
 
     def __saveHipfile(self):
         self.makeFolder(self.scenes_dir)
-        hip_file = os.path.join(self.scenes_dir, hou.hipFile.name())
+        hip_file = os.path.join(self.scenes_dir, hou.hipFile.basename())
         hou.hipFile.save(hip_file)
 
     def __saveLog(self, data=None, err=None):       
@@ -292,14 +346,8 @@ class HSC(object): # HoudiniSceneCollect
         if data:
             for k, v in data.items():
                 hou.parm(k).set(v)
-        print "Restore complete!"
-
-    def __checkExistance(self, path):
-        if os.path.exists(path):
-            return True
-        else:
-            return False
+        print "Restore complete!"    
 
 
-c = HSC("T:/KokTobe/pln_0260_collect_test")
-c.check()
+c = HSC("D:/test")
+c.collect()
